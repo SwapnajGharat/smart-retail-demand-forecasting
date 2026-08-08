@@ -1,0 +1,130 @@
+{
+  "database": "smart_retail_demand_forecasting",
+  "version": "1.0",
+  "tables": {
+    "stores": [
+      {
+        "store_id": 1,
+        "store_name": "Metro Hypermarket - Downtown",
+        "region": "North",
+        "city": "Chicago",
+        "store_type": "Hypermarket",
+        "created_at": "2024-01-15T08:00:00Z"
+      },
+      {
+        "store_id": 2,
+        "store_name": "Express Fresh - Suburbs",
+        "region": "North",
+        "city": "Naperville",
+        "store_type": "Express",
+        "created_at": "2024-03-01T08:00:00Z"
+      }
+    ],
+    "products": [
+      {
+        "product_id": 101,
+        "sku": "DAIRY-MILK-001",
+        "product_name": "Whole Milk 1 Gal",
+        "category": "Dairy",
+        "subcategory": "Milk",
+        "unit_cost": 2.10,
+        "unit_price": 3.99,
+        "is_perishable": true
+      },
+      {
+        "product_id": 102,
+        "sku": "BEV-SODA-005",
+        "product_name": "Sparkling Water 12-Pack",
+        "category": "Beverages",
+        "subcategory": "Water",
+        "unit_cost": 3.50,
+        "unit_price": 6.49,
+        "is_perishable": false
+      }
+    ],
+    "external_factors": [
+      {
+        "factor_id": 1,
+        "factor_date": "2026-07-01",
+        "store_id": 1,
+        "temperature_c": 28.5,
+        "is_holiday": false,
+        "holiday_name": null,
+        "promotion_active": true,
+        "competitor_price_index": 0.98
+      },
+      {
+        "factor_id": 2,
+        "factor_date": "2026-07-04",
+        "store_id": 1,
+        "temperature_c": 31.2,
+        "is_holiday": true,
+        "holiday_name": "Independence Day",
+        "promotion_active": true,
+        "competitor_price_index": 0.95
+      }
+    ],
+    "sales_transactions": [
+      {
+        "transaction_id": 1001,
+        "sale_date": "2026-07-01",
+        "store_id": 1,
+        "product_id": 101,
+        "units_sold": 142,
+        "revenue": 566.58,
+        "is_discounted": false
+      },
+      {
+        "transaction_id": 1002,
+        "sale_date": "2026-07-04",
+        "store_id": 1,
+        "product_id": 102,
+        "units_sold": 310,
+        "revenue": 2011.90,
+        "is_discounted": true
+      }
+    ],
+    "inventory_snapshots": [
+      {
+        "snapshot_id": 5001,
+        "snapshot_date": "2026-07-01",
+        "store_id": 1,
+        "product_id": 101,
+        "stock_on_hand": 35,
+        "was_stocked_out": false
+      },
+      {
+        "snapshot_id": 5002,
+        "snapshot_date": "2026-07-04",
+        "store_id": 1,
+        "product_id": 102,
+        "stock_on_hand": 0,
+        "was_stocked_out": true
+      }
+    ],
+    "demand_forecasts": [
+      {
+        "forecast_id": 9001,
+        "forecast_date": "2026-06-30",
+        "target_date": "2026-07-01",
+        "store_id": 1,
+        "product_id": 101,
+        "predicted_units": 138.50,
+        "model_version": "XGBoost_v1.4",
+        "confidence_lower": 125.00,
+        "confidence_upper": 152.00
+      },
+      {
+        "forecast_id": 9002,
+        "forecast_date": "2026-07-03",
+        "target_date": "2026-07-04",
+        "store_id": 1,
+        "product_id": 102,
+        "predicted_units": 325.00,
+        "model_version": "XGBoost_v1.4",
+        "confidence_lower": 290.00,
+        "confidence_upper": 360.00
+      }
+    ]
+  }
+}

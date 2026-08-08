@@ -1,0 +1,7 @@
+# Virtual Environment
+.venv/
+__pycache__/
+
+# Large CSV or model files (optional, remove if you want them on GitHub)
+model.pkl
+*.log
