@@ -222,24 +222,51 @@ function setupCategoryMenu() {
   document.addEventListener('click', () => menu.classList.remove('open'));
 }
 
-function runPrediction() {
+async function runPrediction(event) {
+  event.preventDefault();
   const button = $('#run-forecast');
   const status = $('#prediction-status');
   button.disabled = true;
   button.innerHTML = '<i data-lucide="loader-circle"></i> Calculating...';
   window.lucide?.createIcons();
   status.textContent = 'Scoring the selected product against the latest store signals...';
-  window.setTimeout(() => {
+  const payload = {
+    store_id: $('#store-id').value.trim(),
+    product_id: $('#product-select').value,
+    price: Number.parseFloat($('#price').value),
+    discount: Number.parseFloat($('#discount').value),
+    units_ordered: Number.parseInt($('#units-ordered').value, 10),
+    weather_condition: $('#weather-condition').value.trim(),
+    seasonality: $('#seasonality').value.trim()
+  };
+
+  try {
+    const response = await fetch('http://localhost:8000/predict', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.detail || `HTTP ${response.status}`);
+    if (typeof result.predicted_demand !== 'number') throw new Error('Response did not include predicted_demand');
+
+    $('#predicted-units').textContent = result.predicted_demand.toFixed(1);
+    $('#prediction-delta').textContent = 'Backend model prediction';
+    status.textContent = `Prediction ready for ${$('#forecast-date').value}.`;
     button.disabled = false;
     button.innerHTML = '<i data-lucide="check"></i> Prediction ready';
-    status.textContent = `Prediction ready for ${$('#forecast-date').value}. Baseline and scenario demand are shown above.`;
     window.lucide?.createIcons();
-    toast('Prediction completed in 0.42s');
     window.setTimeout(() => {
       button.innerHTML = '<i data-lucide="play"></i> Run prediction';
       window.lucide?.createIcons();
     }, 1800);
-  }, 650);
+  } catch (error) {
+    console.error('Prediction request failed:', error);
+    status.textContent = 'Unable to reach the prediction service. Start FastAPI on port 8000 and try again.';
+    button.disabled = false;
+    button.innerHTML = '<i data-lucide="refresh-cw"></i> Retry prediction';
+    window.lucide?.createIcons();
+  }
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -266,7 +293,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('#range-date-label').textContent = date.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
     toast(`Dashboard date changed to ${$('#range-date-label').textContent}`);
   });
-  $('#run-forecast').addEventListener('click', runPrediction);
+  $('#prediction-form').addEventListener('submit', runPrediction);
   $('#export-report').addEventListener('click', () => {
     const accuracy = retailRows.length ? document.querySelector('.metric-card strong').textContent : '93.8%';
     const dailyDemand = retailRows.length ? document.querySelectorAll('.metric-card strong')[1].textContent : '4,286 units';
