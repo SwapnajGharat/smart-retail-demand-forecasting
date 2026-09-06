@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f6f7f2">
+  <title>Northstar | Retail Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#overview" aria-label="Northstar home">
+        <span class="brand-mark"><i></i><i></i><i></i></span>
+        <span>northstar<span class="brand-dot">.</span></span>
+      </a>
+      <div class="workspace-label">Workspace</div>
+      <div class="store-switcher">
+        <span class="store-icon"><i data-lucide="building-2"></i></span>
+        <span><strong>Metro Hypermarket</strong><small>Downtown · Chicago</small></span>
+        <i data-lucide="chevrons-up-down"></i>
+      </div>
+      <nav class="primary-nav" aria-label="Main navigation">
+        <a class="nav-item active" href="#overview" data-view="overview"><i data-lucide="layout-dashboard"></i><span>Overview</span></a>
+        <a class="nav-item" href="#forecast" data-view="forecast"><i data-lucide="scan-line"></i><span>Forecast studio</span><b>2</b></a>
+        <a class="nav-item" href="#performance" data-view="performance"><i data-lucide="chart-no-axes-combined"></i><span>Model performance</span></a>
+        <a class="nav-item" href="#network" data-view="network"><i data-lucide="network"></i><span>Retail network</span></a>
+        <a class="nav-item" href="#inventory" data-view="inventory"><i data-lucide="boxes"></i><span>Inventory actions</span><b class="alert-count">5</b></a>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="health-card"><span class="pulse"></span><div><strong>Systems healthy</strong><small>Last sync 2 min ago</small></div></div>
+        <a class="nav-item" href="#settings"><i data-lucide="settings-2"></i><span>Settings</span></a>
+        <div class="user-row"><span class="avatar"><i data-lucide="store"></i></span><span><strong>Retail operations</strong><small>Metro Hypermarket</small></span><i data-lucide="more-horizontal"></i></div>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div class="breadcrumb"><span>Northstar</span><i data-lucide="chevron-right"></i><strong id="page-title">Overview</strong></div>
+        <div class="topbar-actions"><span class="live-status"><span class="pulse"></span> <span id="data-source">Loading data...</span></span><button class="icon-button" title="Search"><i data-lucide="search"></i></button><button class="icon-button" title="Notifications"><i data-lucide="bell"></i><em></em></button><button class="export-btn" id="export-report"><i data-lucide="download"></i> Export report</button></div>
+      </header>
+
+      <div class="page-wrap" id="overview">
+        <section class="page-heading">
+          <div><p class="eyebrow">Monday, September 07, 2026 <span>•</span> Daily brief</p><h1>Retail operations overview<span class="heading-dot">.</span></h1><p class="heading-copy">Monitor demand, inventory, and model signals across Metro Hypermarket.</p></div>
+          <label class="date-chip" for="range-date"><i data-lucide="calendar-days"></i><span id="range-date-label">Sep 01 — Sep 07, 2026</span><i data-lucide="chevron-down"></i><input type="date" id="range-date" value="2026-09-07" aria-label="Change dashboard date"></label>
+        </section>
+
+        <section class="metric-grid" aria-label="Business summary">
+          <article class="metric-card accent-green"><div class="metric-top"><span>Forecast accuracy</span><i data-lucide="target"></i></div><strong>93.8<span>%</span></strong><div class="metric-foot positive"><i data-lucide="trending-up"></i> 2.4% <span>vs last week</span></div></article>
+          <article class="metric-card"><div class="metric-top"><span>Demand next 7 days</span><i data-lucide="activity"></i></div><strong>4,286<span> units</span></strong><div class="metric-foot positive"><i data-lucide="trending-up"></i> 8.6% <span>vs last week</span></div></article>
+          <article class="metric-card"><div class="metric-top"><span>Revenue at risk</span><i data-lucide="badge-dollar-sign"></i></div><strong>$12.4<span>k</span></strong><div class="metric-foot negative"><i data-lucide="trending-up"></i> 4.1% <span>needs attention</span></div></article>
+          <article class="metric-card"><div class="metric-top"><span>Stock cover</span><i data-lucide="layers-3"></i></div><strong>6.2<span> days</span></strong><div class="metric-foot neutral"><i data-lucide="minus"></i> 0.3 days <span>vs last week</span></div></article>
+        </section>
+
+        <div class="content-grid">
+          <section class="panel demand-panel" id="demand"><div class="panel-header"><div><h2>Demand outlook</h2><p>Actual sales compared with predicted demand</p></div><div class="segmented"><button class="active" data-range="7">7D</button><button data-range="30">30D</button><button data-range="90">90D</button></div></div><div class="legend"><span><i class="legend-line actual"></i>Actual sales</span><span><i class="legend-line forecast"></i>Forecast</span><span><i class="legend-band"></i>Confidence band</span></div><div class="chart-wrap"><svg id="demand-chart" viewBox="0 0 760 290" role="img" aria-label="Demand outlook chart"></svg></div><div class="chart-labels"><span>Sep 01</span><span>Sep 02</span><span>Sep 03</span><span>Sep 04</span><span>Sep 05</span><span>Sep 06</span><span>Sep 07</span></div></section>
+          <section class="panel attention-panel"><div class="panel-header"><div><h2>Needs attention</h2><p>Prioritized actions for today</p></div><button class="more-button" title="More actions"><i data-lucide="more-horizontal"></i></button></div><div class="alert-list" id="alert-list"><div class="alert-item info"><span class="alert-icon"><i data-lucide="database"></i></span><div><strong>Loading inventory signals</strong><p>Reading sales_data.csv</p><small>Signals will appear when data is ready</small></div></div></div><button class="text-button" data-view-link="inventory">View all actions <i data-lucide="arrow-right"></i></button></section>
+        </div>
+
+        <div class="content-grid lower-grid">
+          <section class="panel forecast-panel"><div class="panel-header"><div><h2>Forecast studio</h2><p>Run a quick what-if scenario</p></div><span class="model-badge"><span class="pulse"></span> XGBoost v1.4</span></div><div class="forecast-form"><label>Product<select id="product-select"><option value="P0001">P0001 · Electronics</option><option value="P0002">P0002 · Clothing</option></select></label><label>Forecast date<div class="input-with-icon"><input type="date" id="forecast-date" value="2026-09-08"><i data-lucide="calendar"></i></div></label></div><div class="slider-row"><div class="slider-label"><span>Price adjustment</span><strong id="price-value">0%</strong></div><input type="range" id="price-slider" min="-20" max="20" value="0"><div class="slider-scale"><span>-20%</span><span>Current price</span><span>+20%</span></div></div><div class="prediction-result"><div class="prediction-main"><span>Scenario forecast</span><strong id="predicted-units">139</strong><small id="prediction-delta">0.0% vs baseline</small></div><div class="prediction-baseline"><span>Baseline</span><strong id="baseline-units">139 units</strong><small>Before price adjustment</small></div><div class="prediction-spark"><svg id="scenario-chart" viewBox="0 0 210 54"></svg></div><button class="primary-btn" id="run-forecast" type="button"><i data-lucide="play"></i> Run prediction</button></div><div class="prediction-status" id="prediction-status" aria-live="polite">Adjust the price or date, then run a prediction.</div></section>
+          <section class="panel performance-panel"><div class="panel-header"><div><h2>Model performance</h2><p>Benchmark leaderboard</p></div><button class="more-button" title="Open performance"><i data-lucide="arrow-up-right"></i></button></div><div class="model-rows"><div class="model-row top"><span class="rank">01</span><div class="model-name"><strong>XGBoost Regressor</strong><small>Current production model</small></div><div class="model-accuracy"><strong>93.8%</strong><span>accuracy</span></div><span class="status-chip live">Live</span></div><div class="model-row"><span class="rank">02</span><div class="model-name"><strong>LightGBM Regressor</strong><small>Batch evaluation</small></div><div class="model-accuracy"><strong>91.6%</strong><span>accuracy</span></div><span class="status-chip">Ready</span></div><div class="model-row"><span class="rank">03</span><div class="model-name"><strong>Random Forest</strong><small>Batch evaluation</small></div><div class="model-accuracy"><strong>88.4%</strong><span>accuracy</span></div><span class="status-chip">Ready</span></div><div class="model-row"><span class="rank">04</span><div class="model-name"><strong>LSTM Network</strong><small>Training in progress</small></div><div class="model-accuracy"><strong>86.9%</strong><span>accuracy</span></div><span class="status-chip training">Training</span></div></div><button class="text-button" data-view-link="performance">View full comparison <i data-lucide="arrow-right"></i></button></section>
+        </div>
+
+        <section class="panel inventory-panel"><div class="panel-header"><div><h2>Inventory pulse</h2><p>Stock positions against the next 7 days of demand</p></div><div class="panel-actions"><button class="filter-btn"><i data-lucide="list-filter"></i> All categories <i data-lucide="chevron-down"></i></button><button class="more-button" title="More actions"><i data-lucide="more-horizontal"></i></button></div></div><div class="table-scroll"><table><thead><tr><th>Product</th><th>Category</th><th>On hand</th><th>7D forecast</th><th>Stock cover</th><th>Signal</th><th></th></tr></thead><tbody><tr><td><div class="product-cell"><span class="product-thumb screen">P0001</span><span><strong>P0001</strong><small>CSV product</small></span></div></td><td>Electronics</td><td>195 units</td><td>115 units</td><td><strong>11.9 days</strong></td><td><span class="table-status healthy"><i></i> Healthy</span></td><td><button class="arrow-button" title="Open product"><i data-lucide="arrow-up-right"></i></button></td></tr><tr><td><div class="product-cell"><span class="product-thumb screen">P0002</span><span><strong>P0002</strong><small>CSV product</small></span></div></td><td>Clothing</td><td>117 units</td><td>229 units</td><td><strong>3.6 days</strong></td><td><span class="table-status risk"><i></i> Restock now</span></td><td><button class="arrow-button" title="Open product"><i data-lucide="arrow-up-right"></i></button></td></tr><tr><td><div class="product-cell"><span class="product-thumb screen">P0003</span><span><strong>P0003</strong><small>CSV product</small></span></div></td><td>Clothing</td><td>247 units</td><td>157 units</td><td><strong>11.0 days</strong></td><td><span class="table-status healthy"><i></i> Healthy</span></td><td><button class="arrow-button" title="Open product"><i data-lucide="arrow-up-right"></i></button></td></tr></tbody></table></div></section>
+        <footer class="page-footer"><span>Northstar Retail Intelligence</span><span>Forecasts refresh every 15 minutes <i data-lucide="refresh-cw"></i></span></footer>
+      </div>
+    </main>
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="app.js"></script>
+</body>
+</html>
