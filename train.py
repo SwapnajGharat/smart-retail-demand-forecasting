@@ -1,10 +1,9 @@
 import logging
-import joblib
 import numpy as np
 import pandas as pd
-from lightgbm import LGBMRegressor
 from pymongo import MongoClient
 from sklearn.metrics import mean_absolute_error, mean_squared_error
+from xgboost import XGBRegressor
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 LOG = logging.getLogger(__name__)
@@ -59,7 +58,11 @@ def prepare_data(trans_df: pd.DataFrame, ext_df: pd.DataFrame) -> pd.DataFrame:
     cat_cols = ["weather_condition", "seasonality"]
     for c in cat_cols:
         if c in df.columns:
-            df[c] = df[c].astype("category")
+            categories = {
+                "weather_condition": ["Clear", "Cloudy", "Rainy", "Snowy", "Sunny"],
+                "seasonality": ["None", "Spring", "Summer", "Autumn", "Fall", "Winter"],
+            }
+            df[c] = pd.Categorical(df[c], categories=categories[c])
 
     # Drop NaNs created by lag calculations
     df = df.dropna().reset_index(drop=True)
@@ -105,6 +108,9 @@ def main():
     target_col = "demand"
 
     X = df[feature_cols]
+    if "discount" in X.columns and X["discount"].max() > 1:
+        X = X.copy()
+        X["discount"] = X["discount"] / 100.0
     y = df[target_col]
 
     # Chronological Train-Test Split (85% train, 15% test)
@@ -114,7 +120,14 @@ def main():
 
     LOG.info("Training on %d rows, testing on %d rows", len(X_train), len(X_test))
 
-    model = LGBMRegressor(n_estimators=200, learning_rate=0.05, random_state=42, verbose=-1)
+    model = XGBRegressor(
+        n_estimators=200,
+        learning_rate=0.05,
+        max_depth=6,
+        objective="reg:squarederror",
+        random_state=42,
+        enable_categorical=True,
+    )
     model.fit(X_train, y_train)
 
     preds = model.predict(X_test)
@@ -130,8 +143,8 @@ def main():
     print(f" Weighted Abs % Error (WAPE)    : {wape:.2f}%")
     print("=" * 40 + "\n")
 
-    joblib.dump(model, "model.pkl")
-    LOG.info("Model saved successfully as 'model.pkl'")
+    model.save_model("model.json")
+    LOG.info("Model saved successfully as 'model.json'")
 
 
 if __name__ == "__main__":

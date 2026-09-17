@@ -7,6 +7,8 @@ const forecastData = {
 
 let retailRows = [];
 let dataSource = 'demo fallback';
+let demandChart;
+const livePredictions = [];
 
 function parseCsv(text) {
   const lines = text.trim().split(/\r?\n/);
@@ -128,7 +130,7 @@ const toast = (message) => {
 };
 
 function renderDemandChart(range = 7) {
-  const svg = $('#demand-chart');
+  if (!window.Chart) return;
   let labels = ['Sep 01', 'Sep 02', 'Sep 03', 'Sep 04', 'Sep 05', 'Sep 06', 'Sep 07'];
   let actual = range === 7 ? [121, 138, 130, 160, 147, 174, 166] : [95, 114, 128, 108, 142, 131, 159, 151, 180, 171, 188, 176];
   let forecast = range === 7 ? [126, 134, 139, 151, 154, 162, 169] : [100, 110, 119, 127, 137, 143, 150, 157, 162, 170, 174, 181];
@@ -140,18 +142,26 @@ function renderDemandChart(range = 7) {
     forecast = actual.map((value, index) => Math.round((actual[Math.max(0, index - 1)] || value) * 1.04));
     labels = dates.map((date) => new Date(`${date}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: '2-digit' }));
   }
-  const width = 760, height = 290, left = 42, right = 10, top = 18, bottom = 22;
-  const max = Math.max(210, ...actual, ...forecast) * 1.15, x = (index) => left + index * ((width - left - right) / Math.max(1, actual.length - 1));
-  const y = (value) => height - bottom - (value / max) * (height - top - bottom);
-  const points = (values) => values.map((value, index) => `${x(index)},${y(value)}`).join(' ');
-  const bandTop = forecast.map((value, index) => `${x(index)},${y(value + 18)}`).join(' ');
-  const bandBottom = forecast.slice().reverse().map((value, index) => `${x(forecast.length - index - 1)},${y(value - 18)}`).join(' ');
-  const grid = [50, 100, 150, 200].map((value) => `<line class="chart-grid" x1="${left}" x2="${width - right}" y1="${y(value)}" y2="${y(value)}"/><text class="chart-axis" x="0" y="${y(value) + 3}">${value}</text>`).join('');
-  const dots = actual.map((value, index) => `<circle class="chart-dot" cx="${x(index)}" cy="${y(value)}" r="3.2"/>`).join('');
-  svg.innerHTML = `<defs><linearGradient id="areaFade" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#e9f1eb"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>${grid}<polygon class="chart-band" points="${bandTop} ${bandBottom}"/><polyline class="chart-area" points="${points(actual)} ${width - right},${height - bottom} ${left},${height - bottom}"/><polyline class="actual-line" points="${points(actual)}"/><polyline class="forecast-line" points="${points(forecast)}"/>${dots}`;
-  const labelCount = Math.min(7, labels.length);
-  const visibleLabels = Array.from({ length: labelCount }, (_, index) => labels[Math.round(index * (labels.length - 1) / Math.max(1, labelCount - 1))]);
-  document.querySelector('.chart-labels').innerHTML = visibleLabels.map((label) => `<span>${label}</span>`).join('');
+  const chartElement = $('#demand-chart') || $('#demand-chart-canvas');
+  if (chartElement.tagName.toLowerCase() !== 'canvas') {
+    const canvas = document.createElement('canvas');
+    canvas.id = 'demand-chart-canvas';
+    canvas.setAttribute('aria-label', 'Demand outlook chart');
+    chartElement.replaceWith(canvas);
+  }
+  const liveLabels = livePredictions.map((entry) => entry.label);
+  labels = [...labels, ...liveLabels];
+  const liveValues = Array(labels.length - livePredictions.length).fill(null).concat(livePredictions.map((entry) => entry.value));
+  if (demandChart) demandChart.destroy();
+  demandChart = new Chart($('#demand-chart-canvas'), {
+    type: 'line',
+    data: { labels, datasets: [
+      { label: 'Actual sales', data: [...actual, ...Array(labels.length - actual.length).fill(null)], borderColor: '#273f36', backgroundColor: 'rgba(39, 63, 54, 0.08)', fill: true, tension: 0.35 },
+      { label: 'Forecast', data: [...forecast, ...Array(labels.length - forecast.length).fill(null)], borderColor: '#8b6f47', borderDash: [6, 4], tension: 0.35 },
+      { label: 'Live prediction', data: liveValues, borderColor: '#d05a3d', backgroundColor: '#d05a3d', pointRadius: 5, tension: 0.2 }
+    ] },
+    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: '#e5e8e1' } }, x: { grid: { display: false } } } }
+  });
 }
 
 function renderScenario() {
@@ -240,6 +250,15 @@ async function runPrediction(event) {
     seasonality: $('#seasonality').value.trim()
   };
 
+  const validationError = validatePredictionPayload(payload);
+  if (validationError) {
+    status.textContent = validationError;
+    button.disabled = false;
+    button.innerHTML = '<i data-lucide="alert-circle"></i> Check inputs';
+    window.lucide?.createIcons();
+    return;
+  }
+
   try {
     const response = await fetch('http://localhost:8000/predict', {
       method: 'POST',
@@ -252,6 +271,8 @@ async function runPrediction(event) {
 
     $('#predicted-units').textContent = result.predicted_demand.toFixed(1);
     $('#prediction-delta').textContent = 'Backend model prediction';
+    livePredictions.push({ label: $('#forecast-date').value, value: result.predicted_demand });
+    renderDemandChart(Number(document.querySelector('.segmented button.active')?.dataset.range || 7));
     status.textContent = `Prediction ready for ${$('#forecast-date').value}.`;
     button.disabled = false;
     button.innerHTML = '<i data-lucide="check"></i> Prediction ready';
@@ -269,7 +290,20 @@ async function runPrediction(event) {
   }
 }
 
+function validatePredictionPayload(payload) {
+  if (!payload.store_id || !payload.product_id || !payload.weather_condition || !payload.seasonality) {
+    return 'Store, product, weather, and seasonality are required.';
+  }
+  if (!Number.isFinite(payload.price) || payload.price <= 0) return 'Price must be greater than 0.';
+  if (!Number.isFinite(payload.discount) || payload.discount < 0 || payload.discount > 1) return 'Discount must be between 0 and 1.';
+  if (!Number.isInteger(payload.units_ordered) || payload.units_ordered < 0) return 'Units ordered must be a non-negative whole number.';
+  return '';
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
+  $('#price').min = '0.01';
+  $('#discount').min = '0';
+  $('#discount').max = '1';
   window.lucide?.createIcons();
   renderDemandChart();
   renderScenario();

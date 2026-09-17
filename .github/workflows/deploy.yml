@@ -1,0 +1,45 @@
+name: CI and Docker Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        run: pip install -r requirements.txt
+
+      - name: Start services
+        run: docker compose up -d --build
+
+      - name: Wait for API
+        run: |
+          for attempt in {1..30}; do
+            curl --fail http://localhost:8000/health && break
+            sleep 5
+          done
+
+      - name: Run integration tests
+        run: python test_integration.py
+
+      - name: Build backend image
+        run: docker build --target backend -t smart-retail-backend:${{ github.sha }} .
+
+      - name: Build frontend image
+        run: docker build --target frontend -t smart-retail-frontend:${{ github.sha }} .
+
+      - name: Stop services
+        if: always()
+        run: docker compose down -v

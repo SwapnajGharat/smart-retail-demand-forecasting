@@ -518,10 +518,9 @@ body {
 .chart-wrap {
     height:224px;
 }
-.chart-wrap svg {
+.chart-wrap canvas {
     width:100%;
     height:100%;
-    overflow:visible;
 }
 .chart-grid {
     stroke:#edf0ed;

@@ -3,9 +3,9 @@
 from pathlib import Path
 import sys
 
-import joblib
 import requests
 from pymongo import MongoClient
+from xgboost import XGBRegressor
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -43,17 +43,18 @@ def check_mongodb() -> bool:
 
 def check_model_artifact() -> bool:
     """Verify that the trained model artifact exists and can be deserialized."""
-    model_path = PROJECT_ROOT / "model.pkl"
+    model_path = PROJECT_ROOT / "model.json"
     try:
         if not model_path.is_file():
             raise FileNotFoundError(f"artifact not found at {model_path}")
-        model = joblib.load(model_path)
+        model = XGBRegressor(enable_categorical=True)
+        model.load_model(model_path)
         if model is None:
-            raise ValueError("joblib returned a null model")
-        print(f"[PASS] XGBoost 'model.pkl' Artifact Load Status: loaded {type(model).__name__}")
+            raise ValueError("XGBoost returned a null model")
+        print(f"[PASS] XGBoost 'model.json' Artifact Load Status: loaded {type(model).__name__}")
         return True
     except Exception as exc:
-        print(f"[FAIL] XGBoost 'model.pkl' Artifact Load Status: {exc}")
+        print(f"[FAIL] XGBoost 'model.json' Artifact Load Status: {exc}")
         return False
 
 

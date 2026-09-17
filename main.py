@@ -1,9 +1,16 @@
+from __future__ import annotations
+
 import logging
-import joblib
+import os
+from datetime import datetime, timezone
+
 import pandas as pd
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from neo4j import GraphDatabase
+from pymongo import MongoClient
 from pydantic import BaseModel, Field
+from xgboost import XGBRegressor
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -25,20 +32,65 @@ app.add_middleware(
 )
 
 # Global model instance
-MODEL_PATH = "model.pkl"
+MODEL_PATH = os.getenv("MODEL_PATH", "model.json")
+MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
+MONGODB_DATABASE = os.getenv("MONGODB_DATABASE", "smart_retail_db")
+NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
 model = None
+mongo_client = None
+neo4j_driver = None
 
 
 @app.on_event("startup")
 def load_model_artifact():
     """Loads the serialized XGBoost model artifact into memory upon startup."""
-    global model
+    global model, mongo_client, neo4j_driver
     try:
-        model = joblib.load(MODEL_PATH)
+        model = XGBRegressor(enable_categorical=True)
+        model.load_model(MODEL_PATH)
         logger.info(f"Successfully loaded model artifact from '{MODEL_PATH}'.")
     except Exception as e:
         logger.error(f"Failed to load model artifact '{MODEL_PATH}': {str(e)}")
         model = None
+
+    try:
+        mongo_client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=3000)
+        mongo_client.admin.command("ping")
+        logger.info("Connected to MongoDB database '%s'.", MONGODB_DATABASE)
+    except Exception as e:
+        logger.warning("MongoDB unavailable: %s", e)
+        mongo_client = None
+
+    try:
+        neo4j_driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
+        neo4j_driver.verify_connectivity()
+        logger.info("Connected to Neo4j at '%s'.", NEO4J_URI)
+    except Exception as e:
+        logger.warning("Neo4j unavailable: %s", e)
+        if neo4j_driver:
+            neo4j_driver.close()
+        neo4j_driver = None
+
+
+@app.on_event("shutdown")
+def close_database_clients():
+    if mongo_client:
+        mongo_client.close()
+    if neo4j_driver:
+        neo4j_driver.close()
+
+
+def log_prediction(payload: PredictionRequest, predicted_demand, status: str):
+    if mongo_client is None:
+        return
+    mongo_client[MONGODB_DATABASE]["predictions"].insert_one({
+        "timestamp": datetime.now(timezone.utc),
+        "payload": payload.model_dump(),
+        "predicted_demand": predicted_demand,
+        "status": status,
+    })
 
 
 class PredictionRequest(BaseModel):
@@ -63,13 +115,10 @@ def health_check():
 def predict_demand(payload: PredictionRequest):
     """Generates demand forecasts using the loaded XGBoost regressor model."""
     if model is None:
-        raise HTTPException(
-            status_code=500, 
-            detail="Model artifact 'model.pkl' is not loaded on the server."
-        )
+        raise HTTPException(status_code=500, detail="Model artifact 'model.json' is not loaded on the server.")
 
     try:
-        # Construct DataFrame matching all 22 features expected by model.pkl
+        # Keep inference columns aligned with the training pipeline.
         raw_data = {
             "price": float(payload.price),
             "discount": float(payload.discount),
@@ -87,24 +136,22 @@ def predict_demand(payload: PredictionRequest):
             "epidemic": 0,
             "weather_condition": str(payload.weather_condition),
             "seasonality": str(payload.seasonality),
-            # Engineered features to reach exact 22-column shape
-            "units_sold_lag_28": 35.0,
-            "units_sold_rolling_mean_14": 41.0,
-            "units_sold_rolling_std_14": 4.5,
-            "quarter": 3,
-            "year": 2026,
-            "is_holiday": 0,
         }
         
         input_df = pd.DataFrame([raw_data])
 
         # Cast string objects to categorical types for XGBoost compatibility
-        for col in input_df.select_dtypes(include=["object"]).columns:
-            input_df[col] = input_df[col].astype("category")
+        input_df["weather_condition"] = pd.Categorical(
+            input_df["weather_condition"], categories=["Clear", "Cloudy", "Rainy", "Snowy", "Sunny"]
+        )
+        input_df["seasonality"] = pd.Categorical(
+            input_df["seasonality"], categories=["None", "Spring", "Summer", "Autumn", "Fall", "Winter"]
+        )
 
         # Execute prediction
         prediction_value = model.predict(input_df)[0]
         predicted_demand = round(max(0.0, float(prediction_value)), 2)
+        log_prediction(payload, predicted_demand, "success")
 
         return {
             "status": "success",
@@ -115,7 +162,49 @@ def predict_demand(payload: PredictionRequest):
 
     except Exception as e:
         logger.error(f"Prediction failure: {str(e)}")
+        try:
+            log_prediction(payload, None, "failed")
+        except Exception as log_error:
+            logger.error("Failed to persist prediction failure: %s", log_error)
         raise HTTPException(
             status_code=500, 
             detail=f"Inference error during model execution: {str(e)}"
         )
+
+
+@app.get("/inventory/relationships/{store_id}")
+def inventory_relationships(store_id: str):
+    """Return the store-to-product-to-category graph for a store."""
+    if neo4j_driver is None:
+        raise HTTPException(status_code=503, detail="Neo4j is not available")
+
+    query = """
+    MATCH path=(store:Store {store_id: $store_id})-[:STOCKS]->(product:Product)-[:BELONGS_TO]->(category)
+    RETURN path
+    """
+    try:
+        with neo4j_driver.session() as session:
+            paths = session.run(query, store_id=store_id).data()
+
+        nodes = {}
+        edges = []
+        for record in paths:
+            path = record["path"]
+            for node in path.nodes:
+                nodes[str(node.element_id)] = {
+                    "id": node.element_id,
+                    "labels": list(node.labels),
+                    "properties": dict(node),
+                }
+            for relationship in path.relationships:
+                edges.append({
+                    "id": relationship.element_id,
+                    "type": relationship.type,
+                    "start_node": relationship.start_node.element_id,
+                    "end_node": relationship.end_node.element_id,
+                    "properties": dict(relationship),
+                })
+        return {"store_id": store_id, "nodes": list(nodes.values()), "edges": edges}
+    except Exception as e:
+        logger.error("Neo4j relationship query failed: %s", e)
+        raise HTTPException(status_code=502, detail="Unable to query inventory relationships") from e
