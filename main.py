@@ -31,22 +31,35 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Global model instance
+# Global configuration & state
 MODEL_PATH = os.getenv("MODEL_PATH", "model.json")
-MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
 MONGODB_DATABASE = os.getenv("MONGODB_DATABASE", "smart_retail_db")
 NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
+
 model = None
 mongo_client = None
 neo4j_driver = None
 
 
+class PredictionRequest(BaseModel):
+    store_id: str = Field(..., example="STORE_01")
+    product_id: str = Field(..., example="PROD_01")
+    price: float = Field(..., gt=0, example=49.99)
+    discount: float = Field(..., ge=0, le=1.0, example=0.10)
+    units_ordered: int = Field(default=50, ge=0, example=50)
+    weather_condition: str = Field(default="Clear", example="Clear")
+    seasonality: str = Field(default="None", example="None")
+
+
 @app.on_event("startup")
 def load_model_artifact():
-    """Loads the serialized XGBoost model artifact into memory upon startup."""
+    """Loads model artifacts and initializes database drivers upon startup."""
     global model, mongo_client, neo4j_driver
+
+    # 1. Load ML Model
     try:
         model = XGBRegressor(enable_categorical=True)
         model.load_model(MODEL_PATH)
@@ -55,14 +68,16 @@ def load_model_artifact():
         logger.error(f"Failed to load model artifact '{MODEL_PATH}': {str(e)}")
         model = None
 
+    # 2. Connect to MongoDB
     try:
-        mongo_client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=3000)
+        mongo_client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=3000)
         mongo_client.admin.command("ping")
         logger.info("Connected to MongoDB database '%s'.", MONGODB_DATABASE)
     except Exception as e:
         logger.warning("MongoDB unavailable: %s", e)
         mongo_client = None
 
+    # 3. Connect to Neo4j
     try:
         neo4j_driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
         neo4j_driver.verify_connectivity()
@@ -85,22 +100,15 @@ def close_database_clients():
 def log_prediction(payload: PredictionRequest, predicted_demand, status: str):
     if mongo_client is None:
         return
-    mongo_client[MONGODB_DATABASE]["predictions"].insert_one({
-        "timestamp": datetime.now(timezone.utc),
-        "payload": payload.model_dump(),
-        "predicted_demand": predicted_demand,
-        "status": status,
-    })
-
-
-class PredictionRequest(BaseModel):
-    store_id: str = Field(..., example="STORE_01")
-    product_id: str = Field(..., example="PROD_01")
-    price: float = Field(..., gt=0, example=49.99)
-    discount: float = Field(..., ge=0, le=1.0, example=0.10)
-    units_ordered: int = Field(default=50, ge=0, example=50)
-    weather_condition: str = Field(default="Clear", example="Clear")
-    seasonality: str = Field(default="None", example="None")
+    try:
+        mongo_client[MONGODB_DATABASE]["predictions"].insert_one({
+            "timestamp": datetime.now(timezone.utc),
+            "payload": payload.model_dump(),
+            "predicted_demand": predicted_demand,
+            "status": status,
+        })
+    except Exception as e:
+        logger.error("Failed to log prediction to MongoDB: %s", e)
 
 
 @app.get("/health")
