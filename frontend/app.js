@@ -13,8 +13,9 @@ function showError(message) {
 }
 
 function clearError() {
-  $('#error-alert').hidden = true;
-  $('#error-alert').textContent = '';
+  const alert = $('#error-alert');
+  alert.hidden = true;
+  alert.textContent = '';
 }
 
 function parseCsv(text) {
@@ -58,9 +59,32 @@ function formatDate(value) {
   return new Date(`${value}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
 }
 
+function setInventoryBadge(predictedValue) {
+  const badge = $('#alert-badge');
+  const status = $('#inventory-status');
+  if (predictedValue >= 120) {
+    badge.textContent = 'Overstock Risk';
+    badge.className = 'alert-badge danger';
+    status.textContent = 'Elevated';
+    status.style.color = '#ff7d7d';
+  } else if (predictedValue >= 70) {
+    badge.textContent = 'Reorder Required';
+    badge.className = 'alert-badge warning';
+    status.textContent = 'Watch';
+    status.style.color = '#f6b96b';
+  } else {
+    badge.textContent = 'Optimal';
+    badge.className = 'alert-badge neutral';
+    status.textContent = 'Stable';
+    status.style.color = '#81e7aa';
+  }
+}
+
 function renderDemandChart() {
   if (!window.Chart) return;
+  const threshold = 90;
   const labels = [...historicalLabels, ...(predictionPoint ? [predictionPoint.label] : [])];
+  const inventoryThreshold = Array(labels.length).fill(threshold);
   const actual = [...historicalValues, ...(predictionPoint ? [null] : [])];
   const predictions = [
     ...Array(Math.max(0, historicalLabels.length - 1)).fill(null),
@@ -71,11 +95,72 @@ function renderDemandChart() {
   demandChart?.destroy();
   demandChart = new Chart($('#demand-chart'), {
     type: 'line',
-    data: { labels, datasets: [
-      { label: 'Historical sales', data: actual, borderColor: '#315b4a', backgroundColor: 'rgba(49, 91, 74, .10)', fill: true, tension: .3, pointRadius: 2 },
-      { label: 'Predicted demand', data: predictions, borderColor: '#c77849', backgroundColor: '#c77849', borderDash: [6, 4], tension: .25, pointRadius: 4 }
-    ] },
-    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8 } } }, scales: { y: { beginAtZero: true, grid: { color: '#e4e8e4' } }, x: { grid: { display: false } } } }
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Projected Demand',
+          data: predictions,
+          borderColor: '#62d0ff',
+          backgroundColor: 'rgba(98, 208, 255, 0.12)',
+          fill: true,
+          tension: 0.35,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          yAxisID: 'y'
+        },
+        {
+          label: 'Inventory Threshold',
+          data: inventoryThreshold,
+          borderColor: '#f6b96b',
+          borderDash: [6, 5],
+          pointRadius: 0,
+          fill: false,
+          tension: 0,
+          yAxisID: 'y'
+        },
+        {
+          label: 'Historical Sales',
+          data: actual,
+          borderColor: '#67e7bf',
+          borderDash: [1, 0],
+          backgroundColor: 'rgba(103, 231, 191, 0.18)',
+          pointRadius: 2,
+          fill: false,
+          tension: 0.2,
+          yAxisID: 'y'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'nearest', intersect: false },
+      plugins: {
+        legend: { position: 'bottom', labels: { color: '#dfeaf5', boxWidth: 10, usePointStyle: true } },
+        tooltip: {
+          callbacks: {
+            label(context) {
+              const value = Number(context.parsed.y || 0);
+              const risk = value > 120 ? 'overstock risk' : value > 70 ? 'reorder pressure' : 'healthy buffer';
+              return `${context.dataset.label}: ${value.toFixed(1)} units • ${risk}`;
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: false,
+          grid: { color: 'rgba(148, 179, 197, 0.12)' },
+          ticks: { color: '#a8bac6' },
+          title: { display: true, text: 'Units', color: '#dfeaf5' }
+        },
+        x: {
+          grid: { display: false },
+          ticks: { color: '#a8bac6' }
+        }
+      }
+    }
   });
 }
 
@@ -106,32 +191,34 @@ async function submitPrediction(event) {
   const validationError = validatePredictionPayload(payload);
   if (validationError) {
     showError(validationError);
-    $('#form-status').textContent = 'Correct the input values and try again.';
+    $('#form-status').textContent = 'Correct the scenario inputs and retry.';
     return;
   }
 
   const button = $('#predict-button');
   button.disabled = true;
   button.textContent = 'Predicting...';
-  $('#form-status').textContent = 'Sending request to FastAPI...';
+  $('#form-status').textContent = 'Running XGBoost forecast...';
   try {
     const response = await fetch(`${API_BASE_URL}/predict`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     const result = await response.json();
     if (!response.ok) throw new Error(result.detail || `Prediction failed with HTTP ${response.status}`);
     if (typeof result.predicted_demand !== 'number') throw new Error('The API response did not include predicted_demand.');
 
-    $('#predicted-demand').textContent = result.predicted_demand.toFixed(1);
-    $('#prediction-details').textContent = `${result.store_id} / ${result.product_id} - ${result.status}`;
-    $('#form-status').textContent = 'Prediction received and added to the chart.';
-    predictionPoint = { label: new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit' }), value: result.predicted_demand };
+    const predictedDemand = Number(result.predicted_demand);
+    $('#predicted-demand').textContent = predictedDemand.toFixed(1);
+    $('#prediction-details').textContent = `${result.store_id} • ${result.product_id} • ${result.status}`;
+    $('#form-status').textContent = 'Forecast executed successfully.';
+    setInventoryBadge(predictedDemand);
+    predictionPoint = { label: new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit' }), value: predictedDemand };
     renderDemandChart();
   } catch (error) {
     showError(error.message || 'The prediction request failed.');
-    $('#form-status').textContent = 'Prediction failed.';
-    $('#prediction-details').textContent = 'The API could not return a prediction.';
+    $('#form-status').textContent = 'Prediction request failed.';
+    $('#prediction-details').textContent = 'The system could not return a forecast.';
   } finally {
     button.disabled = false;
-    button.textContent = 'Predict demand';
+    button.textContent = 'Predict Demand';
   }
 }
 
@@ -150,20 +237,20 @@ function renderGraph(data) {
 }
 
 function escapeHtml(value) {
-  return value.replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
+  return String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
 }
 
 async function fetchGraphRelationships() {
   clearError();
   const storeId = $('#store-id').value.trim();
   if (!storeId) {
-    showError('Enter a Store ID before querying relationships.');
+    showError('Enter a store ID before querying the graph.');
     return;
   }
   const button = $('#fetch-graph-btn');
   button.disabled = true;
   button.textContent = 'Loading...';
-  $('#graph-status').textContent = `Loading relationships for ${storeId}...`;
+  $('#graph-status').textContent = `Querying ${storeId} inventory graph...`;
   try {
     const response = await fetch(`${API_BASE_URL}/inventory/relationships/${encodeURIComponent(storeId)}`);
     const result = await response.json();
@@ -175,13 +262,31 @@ async function fetchGraphRelationships() {
     $('#graph-status').textContent = 'Graph query failed.';
   } finally {
     button.disabled = false;
-    button.textContent = 'Load Store Relationships';
+    button.textContent = 'Load Relationships';
   }
 }
 
+function bindTabs() {
+  document.querySelectorAll('.tab-button').forEach((button) => {
+    button.addEventListener('click', () => {
+      const selectedTab = button.dataset.tab;
+      document.querySelectorAll('.tab-button').forEach((btn) => {
+        const active = btn === button;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-selected', String(active));
+      });
+      document.querySelectorAll('.tab-panel').forEach((panel) => {
+        panel.classList.toggle('active', panel.dataset.panel === selectedTab);
+      });
+    });
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  bindTabs();
   $('#forecast-form').addEventListener('submit', submitPrediction);
   $('#fetch-graph-btn').addEventListener('click', fetchGraphRelationships);
+  setInventoryBadge(0);
   renderDemandChart();
   loadHistoricalSales();
 });

@@ -3,64 +3,122 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Retail Demand Forecast</title>
+  <title>NorthStar</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main class="dashboard-shell">
-    <header class="page-header">
+  <div class="app-shell">
+    <header class="topbar panel-glass">
       <div>
-        <p class="eyebrow">Smart retail intelligence</p>
-        <h1>Demand forecasting<span>.</span></h1>
-        <p class="subtitle">Run a forecast and inspect the connected inventory graph.</p>
+        <p class="eyebrow">Executive view</p>
+        <h1>NorthStar</h1>
+      </div>
+      <div class="status-cluster" aria-label="System status indicators">
+        <div class="status-pill online"><span class="status-dot"></span>FastAPI Engine</div>
+        <div class="status-pill online"><span class="status-dot"></span>MongoDB Atlas</div>
+        <div class="status-pill online"><span class="status-dot"></span>XGBoost Inference</div>
       </div>
     </header>
 
     <div id="error-alert" class="alert error" role="alert" hidden></div>
 
-    <section class="dashboard-grid" aria-label="Demand forecasting dashboard">
-      <div class="left-column">
-        <section class="panel chart-panel" aria-labelledby="outlook-title">
-          <div class="panel-heading"><div><p class="section-kicker">Historical and live data</p><h2 id="outlook-title">Demand outlook</h2></div></div>
-          <div class="chart-wrap"><canvas id="demand-chart" aria-label="Historical sales and predicted demand chart"></canvas></div>
-        </section>
+    <main class="analytics-grid">
+      <section class="panel-glass primary-visualizer">
+        <div class="panel-header">
+          <div>
+            <p class="section-kicker">Primary visualizer</p>
+            <h2>Projected demand vs inventory thresholds</h2>
+          </div>
+          <div class="legend-inline">
+            <span><i class="dot demand"></i> Demand</span>
+            <span><i class="dot threshold"></i> Inventory threshold</span>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="demand-chart" aria-label="Projected demand and inventory threshold chart"></canvas>
+        </div>
+      </section>
 
-        <section class="panel" aria-labelledby="form-title">
-          <div class="panel-heading"><div><p class="section-kicker">XGBoost model</p><h2 id="form-title">Interactive forecast</h2></div></div>
-          <form id="forecast-form" novalidate>
-            <div class="form-grid">
+      <section class="panel-glass controls-card">
+        <div class="panel-header compact">
+          <div>
+            <p class="section-kicker">Scenario controls</p>
+            <h2>Forecast inputs</h2>
+          </div>
+        </div>
+
+        <div class="tab-toggle" role="tablist" aria-label="Input categories">
+          <button class="tab-button active" type="button" data-tab="core" role="tab" aria-selected="true">Core</button>
+          <button class="tab-button" type="button" data-tab="context" role="tab" aria-selected="false">Context</button>
+        </div>
+
+        <form id="forecast-form" novalidate>
+          <div class="tab-panel active" data-panel="core">
+            <div class="form-grid compact-grid">
               <label>Store ID<input id="store-id" name="store_id" value="S001" required></label>
               <label>Product ID<input id="product-id" name="product_id" value="P0001" required></label>
               <label>Price<input id="price" name="price" type="number" min="0.01" step="0.01" value="49.99" required></label>
               <label>Discount<input id="discount" name="discount" type="number" min="0" max="1" step="0.01" value="0.10" required></label>
-              <label>Units ordered<input id="units-ordered" name="units_ordered" type="number" min="0" step="1" value="50" required></label>
-              <label>Weather condition<input id="weather-condition" name="weather_condition" value="Clear" required></label>
+              <label class="full-span">Units ordered<input id="units-ordered" name="units_ordered" type="number" min="0" step="1" value="50" required></label>
+            </div>
+          </div>
+
+          <div class="tab-panel" data-panel="context">
+            <div class="form-grid compact-grid">
+              <label>Weather<input id="weather-condition" name="weather_condition" value="Clear" required></label>
               <label>Seasonality<input id="seasonality" name="seasonality" value="None" required></label>
             </div>
-            <div class="form-actions"><button id="predict-button" class="primary-button" type="submit">Predict demand</button><p id="form-status" class="form-status" aria-live="polite">Enter inputs and run the model.</p></div>
-          </form>
-        </section>
-      </div>
+          </div>
 
-      <aside class="right-column">
-        <section class="panel prediction-card" aria-labelledby="prediction-title">
-          <p class="section-kicker">Latest response</p>
-          <h2 id="prediction-title">Prediction Result</h2>
-          <div class="prediction-value"><strong id="predicted-demand">--</strong><span>units</span></div>
-          <p id="prediction-details" class="form-status">No prediction submitted.</p>
-        </section>
+          <div class="form-actions">
+            <button id="predict-button" class="primary-button" type="submit">Predict Demand</button>
+            <p id="form-status" class="form-status" aria-live="polite">Engine ready for scenario testing.</p>
+          </div>
+        </form>
+      </section>
 
-        <section class="panel" aria-labelledby="graph-title">
-          <div class="panel-heading"><div><p class="section-kicker">Neo4j inventory graph</p><h2 id="graph-title">Supply Chain Graph</h2></div><button id="fetch-graph-btn" class="secondary-button" type="button">Load Store Relationships</button></div>
-          <p id="graph-status" class="form-status">Query a store to load its product relationships.</p>
-          <div id="graph-output" class="graph-output" aria-live="polite"><p class="empty-state">No graph data loaded.</p></div>
-        </section>
-      </aside>
-    </section>
-  </main>
+      <section class="panel-glass output-card">
+        <div class="panel-header compact">
+          <div>
+            <p class="section-kicker">Live KPI</p>
+            <h2>Predicted Demand</h2>
+          </div>
+          <span id="alert-badge" class="alert-badge neutral">Optimal</span>
+        </div>
+
+        <div class="prediction-metric">
+          <div class="value-block">
+            <strong id="predicted-demand">--</strong>
+            <span>Units</span>
+          </div>
+          <div class="delta-panel">
+            <span class="delta-label">Inventory status</span>
+            <strong id="inventory-status">Stable</strong>
+          </div>
+        </div>
+
+        <div id="prediction-details" class="kpi-note">No model run recorded.</div>
+      </section>
+
+      <section class="panel-glass network-card">
+        <div class="panel-header compact">
+          <div>
+            <p class="section-kicker">Graph network feed</p>
+            <h2>Store ➔ Product ➔ Category</h2>
+          </div>
+          <button id="fetch-graph-btn" class="secondary-button" type="button">Load Relationships</button>
+        </div>
+
+        <p id="graph-status" class="form-status">Select a store and query the upstream inventory map.</p>
+        <div id="graph-output" class="graph-output" aria-live="polite">
+          <p class="empty-state">No graph data loaded.</p>
+        </div>
+      </section>
+    </main>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script src="app.js"></script>
