@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 import pandas as pd
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pymongo import MongoClient
 from pydantic import BaseModel, Field
 from xgboost import XGBRegressor
@@ -24,11 +26,18 @@ app = FastAPI(
 # Enable CORS for frontend integration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://127.0.0.1:5500", "http://127.0.0.1:8000"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.mount("/static", StaticFiles(directory="frontend"), name="static")
+
+
+@app.get("/")
+def serve_frontend():
+    return FileResponse("frontend/index.html")
 
 # Global configuration & state
 MODEL_PATH = os.getenv("MODEL_PATH", "model.json")
