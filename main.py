@@ -7,7 +7,6 @@ from datetime import datetime, timezone
 import pandas as pd
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from neo4j import GraphDatabase
 from pymongo import MongoClient
 from pydantic import BaseModel, Field
 from xgboost import XGBRegressor
@@ -25,7 +24,7 @@ app = FastAPI(
 # Enable CORS for frontend integration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://127.0.0.1:5500", "http://127.0.0.1:8000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -35,13 +34,8 @@ app.add_middleware(
 MODEL_PATH = os.getenv("MODEL_PATH", "model.json")
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
 MONGODB_DATABASE = os.getenv("MONGODB_DATABASE", "smart_retail_db")
-NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
-
 model = None
 mongo_client = None
-neo4j_driver = None
 
 
 class PredictionRequest(BaseModel):
@@ -56,8 +50,8 @@ class PredictionRequest(BaseModel):
 
 @app.on_event("startup")
 def load_model_artifact():
-    """Loads model artifacts and initializes database drivers upon startup."""
-    global model, mongo_client, neo4j_driver
+    """Loads the model artifact and initializes the MongoDB client upon startup."""
+    global model, mongo_client
 
     # 1. Load ML Model
     try:
@@ -77,24 +71,10 @@ def load_model_artifact():
         logger.warning("MongoDB unavailable: %s", e)
         mongo_client = None
 
-    # 3. Connect to Neo4j
-    try:
-        neo4j_driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
-        neo4j_driver.verify_connectivity()
-        logger.info("Connected to Neo4j at '%s'.", NEO4J_URI)
-    except Exception as e:
-        logger.warning("Neo4j unavailable: %s", e)
-        if neo4j_driver:
-            neo4j_driver.close()
-        neo4j_driver = None
-
-
 @app.on_event("shutdown")
 def close_database_clients():
     if mongo_client:
         mongo_client.close()
-    if neo4j_driver:
-        neo4j_driver.close()
 
 
 def log_prediction(payload: PredictionRequest, predicted_demand, status: str):
@@ -179,40 +159,3 @@ def predict_demand(payload: PredictionRequest):
             detail=f"Inference error during model execution: {str(e)}"
         )
 
-
-@app.get("/inventory/relationships/{store_id}")
-def inventory_relationships(store_id: str):
-    """Return the store-to-product-to-category graph for a store."""
-    if neo4j_driver is None:
-        raise HTTPException(status_code=503, detail="Neo4j is not available")
-
-    query = """
-    MATCH path=(store:Store {store_id: $store_id})-[:STOCKS]->(product:Product)-[:BELONGS_TO]->(category)
-    RETURN path
-    """
-    try:
-        with neo4j_driver.session() as session:
-            paths = session.run(query, store_id=store_id).data()
-
-        nodes = {}
-        edges = []
-        for record in paths:
-            path = record["path"]
-            for node in path.nodes:
-                nodes[str(node.element_id)] = {
-                    "id": node.element_id,
-                    "labels": list(node.labels),
-                    "properties": dict(node),
-                }
-            for relationship in path.relationships:
-                edges.append({
-                    "id": relationship.element_id,
-                    "type": relationship.type,
-                    "start_node": relationship.start_node.element_id,
-                    "end_node": relationship.end_node.element_id,
-                    "properties": dict(relationship),
-                })
-        return {"store_id": store_id, "nodes": list(nodes.values()), "edges": edges}
-    except Exception as e:
-        logger.error("Neo4j relationship query failed: %s", e)
-        raise HTTPException(status_code=502, detail="Unable to query inventory relationships") from e

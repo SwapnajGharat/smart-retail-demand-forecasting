@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NorthStar</title>
+  <title>NORTHSTAR </title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -11,66 +11,73 @@
 </head>
 <body>
   <div class="app-shell">
-    <header class="topbar panel-glass">
-      <div>
-        <p class="eyebrow">Executive view</p>
-        <h1>NorthStar</h1>
+    <header class="topbar">
+      <div class="brand-lockup">
+        <span class="brand-mark" aria-hidden="true">✦</span>
+        <div>
+          <p class="eyebrow">Demand intelligence</p>
+          <h1>NORTHSTAR <span>Smart Demand Forecaster</span></h1>
+        </div>
       </div>
-      <div class="status-cluster" aria-label="System status indicators">
-        <div class="status-pill online"><span class="status-dot"></span>FastAPI Engine</div>
-        <div class="status-pill online"><span class="status-dot"></span>MongoDB Atlas</div>
-        <div class="status-pill online"><span class="status-dot"></span>XGBoost Inference</div>
+      <div class="status-pill" aria-label="API status">
+        <span class="status-dot"></span>
+        API: localhost:8000 (Connected)
       </div>
     </header>
 
     <div id="error-alert" class="alert error" role="alert" hidden></div>
 
-    <main class="analytics-grid">
-      <section class="panel-glass primary-visualizer">
+    <main class="forecast-layout">
+      <section class="panel-card controls-card">
         <div class="panel-header">
           <div>
-            <p class="section-kicker">Primary visualizer</p>
-            <h2>Projected demand vs inventory thresholds</h2>
+            <p class="section-kicker">Forecasting Parameters</p>
+            <h2>Build a demand scenario</h2>
           </div>
-          <div class="legend-inline">
-            <span><i class="dot demand"></i> Demand</span>
-            <span><i class="dot threshold"></i> Inventory threshold</span>
-          </div>
-        </div>
-        <div class="chart-wrap">
-          <canvas id="demand-chart" aria-label="Projected demand and inventory threshold chart"></canvas>
-        </div>
-      </section>
-
-      <section class="panel-glass controls-card">
-        <div class="panel-header compact">
-          <div>
-            <p class="section-kicker">Scenario controls</p>
-            <h2>Forecast inputs</h2>
-          </div>
-        </div>
-
-        <div class="tab-toggle" role="tablist" aria-label="Input categories">
-          <button class="tab-button active" type="button" data-tab="core" role="tab" aria-selected="true">Core</button>
-          <button class="tab-button" type="button" data-tab="context" role="tab" aria-selected="false">Context</button>
+          <span class="field-count">07 inputs</span>
         </div>
 
         <form id="forecast-form" novalidate>
-          <div class="tab-panel active" data-panel="core">
-            <div class="form-grid compact-grid">
-              <label>Store ID<input id="store-id" name="store_id" value="S001" required></label>
-              <label>Product ID<input id="product-id" name="product_id" value="P0001" required></label>
-              <label>Price<input id="price" name="price" type="number" min="0.01" step="0.01" value="49.99" required></label>
-              <label>Discount<input id="discount" name="discount" type="number" min="0" max="1" step="0.01" value="0.10" required></label>
-              <label class="full-span">Units ordered<input id="units-ordered" name="units_ordered" type="number" min="0" step="1" value="50" required></label>
-            </div>
-          </div>
-
-          <div class="tab-panel" data-panel="context">
-            <div class="form-grid compact-grid">
-              <label>Weather<input id="weather-condition" name="weather_condition" value="Clear" required></label>
-              <label>Seasonality<input id="seasonality" name="seasonality" value="None" required></label>
-            </div>
+          <div class="form-grid">
+            <label>Store ID<select id="store-id" name="store_id" required>
+              <option value="STORE_01" selected>STORE_01</option>
+              <option value="STORE_02">STORE_02</option>
+              <option value="STORE_03">STORE_03</option>
+              <option value="STORE_04">STORE_04</option>
+            </select></label>
+            <label>Product ID<select id="product-id" name="product_id" required>
+              <option value="PROD_01" selected>PROD_01</option>
+              <option value="PROD_02">PROD_02</option>
+              <option value="PROD_03">PROD_03</option>
+              <option value="PROD_04">PROD_04</option>
+              <option value="PROD_05">PROD_05</option>
+            </select></label>
+            <label>Price ($)<input id="price" name="price" type="number" min="0.01" step="0.01" value="49.99" required></label>
+            <label>Discount<select id="discount" name="discount" required>
+              <option value="0.00">0.00</option>
+              <option value="0.05">0.05</option>
+              <option value="0.10" selected>0.10</option>
+              <option value="0.15">0.15</option>
+              <option value="0.20">0.20</option>
+              <option value="0.25">0.25</option>
+              <option value="0.50">0.50</option>
+            </select></label>
+            <label>Units Ordered / Inventory Level<input id="units-ordered" name="units_ordered" type="number" min="0" step="1" value="50" required></label>
+            <label>Weather Condition<select id="weather-condition" name="weather_condition" required>
+              <option value="Clear" selected>Clear</option>
+              <option value="Cloudy">Cloudy</option>
+              <option value="Rainy">Rainy</option>
+              <option value="Snowy">Snowy</option>
+              <option value="Sunny">Sunny</option>
+            </select></label>
+            <label>Seasonality / Festival<select id="seasonality" name="seasonality" required>
+              <option value="None" selected>None</option>
+              <option value="Spring">Spring</option>
+              <option value="Summer">Summer</option>
+              <option value="Autumn">Autumn</option>
+              <option value="Fall">Fall</option>
+              <option value="Winter">Winter</option>
+            </select></label>
           </div>
 
           <div class="form-actions">
@@ -80,19 +87,19 @@
         </form>
       </section>
 
-      <section class="panel-glass output-card">
-        <div class="panel-header compact">
+      <section class="panel-card output-card" aria-live="polite">
+        <div class="panel-header">
           <div>
-            <p class="section-kicker">Live KPI</p>
+            <p class="section-kicker">Prediction Result</p>
             <h2>Predicted Demand</h2>
           </div>
-          <span id="alert-badge" class="alert-badge neutral">Optimal</span>
+          <span class="trend-icon" aria-hidden="true">↗</span>
         </div>
 
         <div class="prediction-metric">
           <div class="value-block">
             <strong id="predicted-demand">--</strong>
-            <span>Units</span>
+            <span>units</span>
           </div>
           <div class="delta-panel">
             <span class="delta-label">Inventory status</span>
@@ -103,24 +110,11 @@
         <div id="prediction-details" class="kpi-note">No model run recorded.</div>
       </section>
 
-      <section class="panel-glass network-card">
-        <div class="panel-header compact">
-          <div>
-            <p class="section-kicker">Graph network feed</p>
-            <h2>Store ➔ Product ➔ Category</h2>
-          </div>
-          <button id="fetch-graph-btn" class="secondary-button" type="button">Load Relationships</button>
-        </div>
-
-        <p id="graph-status" class="form-status">Select a store and query the upstream inventory map.</p>
-        <div id="graph-output" class="graph-output" aria-live="polite">
-          <p class="empty-state">No graph data loaded.</p>
-        </div>
-      </section>
     </main>
+
+    <footer>NORTHSTAR Project - Local Setup | Powered by XGBoost Model &amp; MongoDB Atlas</footer>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
